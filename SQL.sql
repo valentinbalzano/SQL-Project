@@ -17,6 +17,36 @@ GROUP BY productname
 ORDER BY total_ordered desc
 LIMIT 5;
 
+-- Requête additionnelle logistics
+
+CREATE VIEW compstock AS (
+SELECT  YEAR(orders.orderDate), orderdetails.productCode, products.productName , SUM(orderdetails.quantityOrdered) AS Somme_Oders, products.quantityInStock
+FROM orderdetails
+JOIN products
+ON orderdetails.productCode = products.productCode
+JOIN orders
+ON orders.orderNumber = orderdetails.orderNumber
+WHERE YEAR(orders.orderDate) = "2021" AND orders.status != 'cancelled'
+GROUP BY YEAR(orders.orderDate), productCode
+ORDER BY sum(orderdetails.quantityOrdered) desc);
+
+
+SELECT * FROM compstock
+WHERE quantityInStock<(Somme_Oders*3) LIMIT 10;
+
+SELECT * FROM compstock
+WHERE quantityInStock>(Somme_Oders*3) LIMIT 10;
+
+-- Credit limit non respecté 
+
+SELECT orders.customerNumber, orders.orderNumber, YEAR(orderDate) AS annee, SUM(quantityOrdered * priceEach) AS mt_order, creditLimit, (creditLimit - SUM(quantityOrdered * priceEach)) AS out_creditLimit
+FROM orders
+RIGHT JOIN customers ON orders.customerNumber = customers.customerNumber
+RIGHT JOIN payments ON customers.customerNumber = payments.customerNumber
+RIGHT JOIN orderdetails ON orders.orderNumber = orderdetails.orderNumber
+WHERE orders.status != 'cancelled'
+GROUP BY orders.customerNumber, orders.orderNumber, annee;
+
 -- HUMAN RESSOURCES - Top two sellers with the highest turnover from last month
 -- FINAL VERSION / WORKING AS INTENDED
 
@@ -33,7 +63,7 @@ GROUP BY seller
 ORDER BY total_amount DESC;
 
 
--- FINANCES -- Turnover 
+-- FINANCES -- Turnover - chiffre d'affaire sur les 2 derniers mois par pays
 -- FINAL VERSION / WORKING AS INTENDED
 -- Change INTERVAL to -3 for testing purposes
 
@@ -56,6 +86,17 @@ ON orders.customernumber = customers.customernumber
 WHERE MONTH(OrderDate) = MONTH(CURRENT_DATE)-1
 GROUP BY customers.country
 ORDER BY orderdate DESC;
+
+-- 2nd method/ 1ere requete Finance : chiffre d'affaire sur les 2 derniers mois par pays
+
+SELECT offices.country AS country, MONTH(orderDate) AS mois, SUM(quantityOrdered * priceEach) AS turnover
+FROM orders
+JOIN customers ON orders.customerNumber = customers.customerNumber
+JOIN employees ON customers.salesRepEmployeeNumber = employees.EmployeeNumber
+JOIN offices ON employees.officeCode = offices.officeCode
+JOIN orderdetails ON orders.orderNumber = orderdetails.orderNumber
+WHERE YEAR(orders.orderDate) = YEAR(NOW()) AND MONTH(orders.orderDate) >= MONTH(CURDATE() - INTERVAL 2 MONTH) AND orders.status != 'cancelled'
+GROUP BY country, mois;
 
 -- PREVIOUS FOR FINANCES
 
